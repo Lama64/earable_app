@@ -22,7 +22,7 @@ class _AddDialogState extends State<AddDialog> {
     _nameFocusNode.requestFocus();
   }
 
-  void focusNextField(
+  void _focusNextField(
       BuildContext context, FocusNode currentNode, FocusNode? nextNode) {
     currentNode.unfocus();
     if (nextNode != null) {
@@ -45,21 +45,34 @@ class _AddDialogState extends State<AddDialog> {
           TextField(
             controller: _nameController,
             focusNode: _nameFocusNode,
+            textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(labelText: 'Name'),
             onSubmitted: (_) =>
-                focusNextField(context, _nameFocusNode, _testFocusNode),
+                _focusNextField(context, _nameFocusNode, _testFocusNode),
           ),
           TextField(
             controller: _testController,
             focusNode: _testFocusNode,
+            textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(labelText: 'Test'),
-            onSubmitted: (_) => focusNextField(context, _testFocusNode, null),
+            onSubmitted: (_) => _focusNextField(context, _testFocusNode, null),
           )
         ],
       ),
       actions: <Widget>[
+        //Cancel
         TextButton(
-            onPressed: () => Navigator.of(context).pop(), child: Text('close')),
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cancel')),
+        //Create
+        TextButton(
+            onPressed: () {
+              widget.onAddPressed(Session(
+                  id: DateTime.now().millisecondsSinceEpoch,
+                  name: _nameController.text));
+              Navigator.pop(context);
+            },
+            child: Text('Create'))
       ],
     );
   }
