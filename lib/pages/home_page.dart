@@ -1,9 +1,9 @@
+import 'dart:math';
+
 import 'package:earable_app/models/session.dart';
 import 'package:earable_app/widgets/add_dialog.dart';
 import 'package:earable_app/widgets/session_item.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:xml/xml.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.title});
@@ -17,9 +17,21 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final _sessions = <Session>[];
+  final _searchController = TextEditingController();
+  String _searchTerm = '';
+
+  @override
+  void initState() {
+    super.initState();
+
+    _searchController.addListener(() {
+      setState(() {
+        _searchTerm = _searchController.text;
+      });
+    });
+  }
 
   void _addNewSession(Session session) {
-    _fetchCurrentGame(widget.steamId);
     setState(() {
       _sessions.insert(0, session);
     });
@@ -31,33 +43,11 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Future<Session?> _fetchCurrentGame(String steamId) async {
-    final profileUrl =
-        Uri.https('steamcommunity.com', '/profiles/$steamId', {'xml': '1'});
-    final response = await http.get(profileUrl);
-
-    if (response.statusCode != 200) {
-      final statusCode = response.statusCode;
-      throw Exception('Request failed. Status code: $statusCode');
-    }
-    final xmlResponse = XmlDocument.parse(response.body);
-    final currentGame = xmlResponse.getElement('inGameInfo');
-    if (currentGame == null) {
-      throw Exception('There is no game being currently played.');
-    }
-    final gameName = currentGame.findAllElements('gameName');
-    final gameLink = currentGame.findAllElements('gameLink');
-    final gameLogo = currentGame.findAllElements('gameLogo');
-    if (gameLogo.length != 1 || gameLink.length != 1 || gameName.length != 1) {
-      throw Exception('Information about the game is missing');
-    }
-    final gameId =
-        int.parse(Uri.parse(gameLink.single.innerText).pathSegments.last);
-    return Session(
-        id: DateTime.now().millisecondsSinceEpoch,
-        name: gameName.single.innerText,
-        logoUrl: gameLogo.single.innerText,
-        gameId: gameId);
+  List<Session> _filterSessions() {
+    return _sessions
+        .where((session) =>
+            session.name.toLowerCase().contains(_searchTerm.toLowerCase()))
+        .toList();
   }
 
   @override
@@ -70,6 +60,7 @@ class _HomePageState extends State<HomePage> {
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildSearch(),
             Flexible(
               flex: 0,
               child: _buildList(),
@@ -82,21 +73,41 @@ class _HomePageState extends State<HomePage> {
                 context: context,
                 builder: (context) => AddDialog(
                       onAddPressed: _addNewSession,
+                      steamId: widget.steamId,
                     ));
           },
           child: const Icon(Icons.add),
         ));
   }
 
+  Widget _buildSearch() {
+    return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: TextField(
+          decoration: const InputDecoration(
+            hintText: 'Search',
+            icon: Icon(Icons.search),
+          ),
+          controller: _searchController,
+        ));
+  }
+
   Widget _buildList() {
+    final filteredSessions = _filterSessions();
     return ListView.builder(
       shrinkWrap: true,
-      itemCount: _sessions.length,
+      itemCount: filteredSessions.length,
       itemBuilder: (context, index) {
-        final session = _sessions[index];
+        final session = filteredSessions[index];
         return SessionItem(
             session: session, onDelete: () => _deleteSession(session.id));
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 }

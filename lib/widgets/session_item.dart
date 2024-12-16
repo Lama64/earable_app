@@ -20,9 +20,13 @@ class _SessionItemState extends State<SessionItem> {
       child: Container(
         height: 125,
         decoration: BoxDecoration(
-          color: Colors.cyan,
-          borderRadius: BorderRadius.circular(24),
-        ),
+            color: widget.session.logoUrl == null ? Colors.cyan : null,
+            borderRadius: BorderRadius.circular(24),
+            image: widget.session.logoUrl != null
+                ? DecorationImage(
+                    image: NetworkImage(widget.session.logoUrl!),
+                    fit: BoxFit.cover)
+                : null),
         child: Stack(
           children: [
             // Text at top left
