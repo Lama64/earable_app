@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:earable_app/models/session.dart';
 import 'package:earable_app/widgets/add_dialog.dart';
 import 'package:earable_app/widgets/session_item.dart';
@@ -61,8 +59,7 @@ class _HomePageState extends State<HomePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSearch(),
-            Flexible(
-              flex: 0,
+            Expanded(
               child: _buildList(),
             )
           ],

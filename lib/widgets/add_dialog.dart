@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:earable_app/models/session.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -15,6 +17,15 @@ class AddDialog extends StatefulWidget {
 }
 
 class _AddDialogState extends State<AddDialog> {
+  static const _backgroundColors = [
+    // pastel rainbow colors
+    Color(0xffffb3ba),
+    Color(0xffffdfba),
+    Color(0xffffffba),
+    Color(0xffbaffc9),
+    Color(0xffbae1ff)
+  ];
+
   final _nameController = TextEditingController();
   final _nameFocusNode = FocusNode();
   final _testController = TextEditingController();
@@ -23,6 +34,7 @@ class _AddDialogState extends State<AddDialog> {
   @override
   void initState() {
     super.initState();
+
     _nameFocusNode.requestFocus();
   }
 
@@ -36,10 +48,11 @@ class _AddDialogState extends State<AddDialog> {
       throw Exception('Request failed. Status code: $statusCode');
     }
     final xmlResponse = XmlDocument.parse(response.body);
-    final currentGame = xmlResponse.getElement('inGameInfo');
-    if (currentGame == null) {
+    final inGameInfo = xmlResponse.findAllElements('inGameInfo');
+    if (inGameInfo.isEmpty) {
       throw Exception('There is no game currently being played.');
     }
+    final currentGame = inGameInfo.first;
     final gameName = currentGame.findAllElements('gameName');
     final gameLink = currentGame.findAllElements('gameLink');
     final gameLogo = currentGame.findAllElements('gameLogo');
@@ -63,7 +76,9 @@ class _AddDialogState extends State<AddDialog> {
     } else {
       widget.onAddPressed(Session(
           id: DateTime.now().millisecondsSinceEpoch,
-          name: _nameController.text));
+          name: _nameController.text,
+          backgroundColor:
+              _backgroundColors[Random().nextInt(_backgroundColors.length)]));
       Navigator.pop(context);
     }
   }
