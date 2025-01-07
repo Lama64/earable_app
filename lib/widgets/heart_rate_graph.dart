@@ -24,7 +24,7 @@ class _HeartRateGraphState extends State<HeartRateGraph> {
     setState(() {
       _heartRatePoints = List<FlSpot>.generate(
         sampleRates.length,
-        (index) => FlSpot(index.toDouble() * 2,
+        (index) => FlSpot(index * 2,
             sampleRates[index]), // x = time, y = heart rate
       );
     });

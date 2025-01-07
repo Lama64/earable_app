@@ -1,7 +1,9 @@
 import 'package:earable_app/models/session.dart';
+import 'package:earable_app/services/bluetooth_service.dart';
 import 'package:earable_app/widgets/add_dialog.dart';
 import 'package:earable_app/widgets/session_item.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.title});
@@ -50,31 +52,49 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final bluetoothService = Provider.of<BluetoothService>(context);
     return Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          title: Text(widget.title),
-        ),
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSearch(),
-            Expanded(
-              child: _buildList(),
-            )
-          ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
+      appBar: AppBar(
+        centerTitle: true,
+        title: Text(widget.title),
+        actions: [
+          Text(bluetoothService.heartRate),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSearch(),
+          Expanded(
+            child: _buildList(),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          if (bluetoothService.isConnected) {
             showDialog(
-                context: context,
-                builder: (context) => AddDialog(
-                      onAddPressed: _addNewSession,
-                      steamId: widget.steamId,
-                    ));
-          },
-          child: const Icon(Icons.add),
-        ));
+              context: context,
+              builder: (context) => AddDialog(
+                onAddPressed: _addNewSession,
+                steamId: widget.steamId,
+              ),
+            );
+          } else {
+            try {
+              await bluetoothService.connect();
+            } catch (exception) {
+              if (context.mounted) {
+                _showError(context, exception.toString());
+              }
+            }
+          }
+        },
+        child: Icon(bluetoothService.isConnected
+            ? Icons.add
+            : Icons.bluetooth_searching_sharp),
+      ),
+    );
   }
 
   Widget _buildSearch() {
@@ -100,6 +120,21 @@ class _HomePageState extends State<HomePage> {
             session: session, onDelete: () => _deleteSession(session.id));
       },
     );
+  }
+
+  void _showError(BuildContext context, String message) {
+    showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Error'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context), child: Text('Close'))
+            ],
+          );
+        });
   }
 
   @override
