@@ -18,7 +18,7 @@ class AddDialog extends StatefulWidget {
 
 class _AddDialogState extends State<AddDialog> {
   static const _backgroundColors = [
-    // pastel rainbow colors
+    // pastel rainbow colors for session item background
     Color(0xffffb3ba),
     Color(0xffffdfba),
     Color(0xffffffba),
@@ -28,8 +28,6 @@ class _AddDialogState extends State<AddDialog> {
 
   final _nameController = TextEditingController();
   final _nameFocusNode = FocusNode();
-  final _testController = TextEditingController();
-  final _testFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -39,8 +37,13 @@ class _AddDialogState extends State<AddDialog> {
   }
 
   Future<Session?> _fetchCurrentGame(String steamId) async {
-    final profileUrl =
-        Uri.https('steamcommunity.com', '/profiles/$steamId', {'xml': '1'});
+    String path;
+    if (RegExp(r'^\d{17}$').hasMatch(steamId)) {
+      path = '/profiles/$steamId';
+    } else {
+      path = '/id/$steamId';
+    }
+    final profileUrl = Uri.https('steamcommunity.com', path, {'xml': '1'});
     final response = await http.get(profileUrl);
 
     if (response.statusCode != 200) {
@@ -65,37 +68,9 @@ class _AddDialogState extends State<AddDialog> {
         id: DateTime.now().millisecondsSinceEpoch,
         name: gameName.single.innerText,
         logoUrl: gameLogo.single.innerText,
-        gameId: gameId);
-  }
-
-  void _focusNextField(
-      BuildContext context, FocusNode currentNode, FocusNode? nextNode) {
-    currentNode.unfocus();
-    if (nextNode != null) {
-      FocusScope.of(context).requestFocus(nextNode);
-    } else {
-      widget.onAddPressed(Session(
-          id: DateTime.now().millisecondsSinceEpoch,
-          name: _nameController.text,
-          backgroundColor:
-              _backgroundColors[Random().nextInt(_backgroundColors.length)]));
-      Navigator.pop(context);
-    }
-  }
-
-  void _showError(BuildContext context, String message) {
-    showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Error'),
-            content: Text(message),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context), child: Text('Close'))
-            ],
-          );
-        });
+        gameId: gameId,
+        backgroundColor:
+            _backgroundColors[Random().nextInt(_backgroundColors.length)]);
   }
 
   @override
@@ -107,17 +82,10 @@ class _AddDialogState extends State<AddDialog> {
         children: [
           TextButton(
             onPressed: () async {
-              try {
-                final session = await _fetchCurrentGame(widget.steamId);
-                widget.onAddPressed(session!);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                }
-              } catch (exception) {
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  _showError(context, exception.toString());
-                }
+              final session = await _fetchCurrentGame(widget.steamId);
+              widget.onAddPressed(session!);
+              if (context.mounted) {
+                Navigator.pop(context);
               }
             },
             child: Text('Add from Steam'),
@@ -128,16 +96,12 @@ class _AddDialogState extends State<AddDialog> {
             focusNode: _nameFocusNode,
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(labelText: 'Name'),
-            onSubmitted: (_) =>
-                _focusNextField(context, _nameFocusNode, _testFocusNode),
+            onSubmitted: (_) => widget.onAddPressed(Session(
+                id: DateTime.now().millisecondsSinceEpoch,
+                name: _nameController.text,
+                backgroundColor: _backgroundColors[
+                    Random().nextInt(_backgroundColors.length)])),
           ),
-          TextField(
-            controller: _testController,
-            focusNode: _testFocusNode,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(labelText: 'Test'),
-            onSubmitted: (_) => _focusNextField(context, _testFocusNode, null),
-          )
         ],
       ),
       actions: <Widget>[
@@ -150,7 +114,9 @@ class _AddDialogState extends State<AddDialog> {
             onPressed: () {
               widget.onAddPressed(Session(
                   id: DateTime.now().millisecondsSinceEpoch,
-                  name: _nameController.text));
+                  name: _nameController.text,
+                  backgroundColor: _backgroundColors[
+                      Random().nextInt(_backgroundColors.length)]));
               Navigator.pop(context);
             },
             child: Text('Create'))
@@ -161,9 +127,7 @@ class _AddDialogState extends State<AddDialog> {
   @override
   void dispose() {
     _nameController.dispose();
-    _testController.dispose();
     _nameFocusNode.dispose();
-    _testFocusNode.dispose();
     super.dispose();
   }
 }

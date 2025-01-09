@@ -19,11 +19,12 @@ class _HomePageState extends State<HomePage> {
   final _sessions = <Session>[];
   final _searchController = TextEditingController();
   String _searchTerm = '';
+  late BluetoothService bluetoothService;
+  bool _useSimulatedHeartRate = true;
 
   @override
   void initState() {
     super.initState();
-
     _searchController.addListener(() {
       setState(() {
         _searchTerm = _searchController.text;
@@ -33,6 +34,7 @@ class _HomePageState extends State<HomePage> {
 
   void _addNewSession(Session session) {
     setState(() {
+      bluetoothService.updateHeartRatePoints(_useSimulatedHeartRate, session);
       _sessions.insert(0, session);
     });
   }
@@ -40,6 +42,9 @@ class _HomePageState extends State<HomePage> {
   void _deleteSession(int id) {
     setState(() {
       _sessions.removeWhere((element) => element.id == id);
+      if (bluetoothService.activeSessionId == id) {
+        bluetoothService.stopHeartRatePoints();
+      }
     });
   }
 
@@ -52,13 +57,25 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final bluetoothService = Provider.of<BluetoothService>(context);
+    bluetoothService = Provider.of<BluetoothService>(context);
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: Text(widget.title),
+        title: Text(
+          widget.title,
+          overflow: TextOverflow.fade,
+          maxLines: 1,
+          softWrap: false,
+        ),
         actions: [
-          Text(bluetoothService.heartRate),
+          Padding(
+            padding: EdgeInsets.only(right: 20),
+            child: Text(
+                _useSimulatedHeartRate
+                    ? '${bluetoothService.heartRate} bpm'
+                    : '${bluetoothService.simulatedHeartRate} bpm',
+                style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
       body: Column(
@@ -71,27 +88,9 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          if (bluetoothService.isConnected) {
-            showDialog(
-              context: context,
-              builder: (context) => AddDialog(
-                onAddPressed: _addNewSession,
-                steamId: widget.steamId,
-              ),
-            );
-          } else {
-            try {
-              await bluetoothService.connect();
-            } catch (exception) {
-              if (context.mounted) {
-                _showError(context, exception.toString());
-              }
-            }
-          }
-        },
+        onPressed: fabOnPressed,
         child: Icon(bluetoothService.isConnected
-            ? Icons.add
+            ? (bluetoothService.activeSessionId != -1 ? Icons.stop : Icons.add)
             : Icons.bluetooth_searching_sharp),
       ),
     );
@@ -135,6 +134,39 @@ class _HomePageState extends State<HomePage> {
             ],
           );
         });
+  }
+
+  void fabOnPressed() async {
+    if (bluetoothService.isConnected &&
+        bluetoothService.activeSessionId == -1) {
+      // add session
+      showDialog(
+        context: context,
+        builder: (context) => AddDialog(
+          onAddPressed: (session) {
+            try {
+              _addNewSession(session);
+            } catch (exception) {
+              Navigator.pop(context);
+              _showError(context, exception.toString());
+            }
+          },
+          steamId: widget.steamId,
+        ),
+      );
+    } else if (bluetoothService.isConnected) {
+      // stop session
+      bluetoothService.stopHeartRatePoints();
+    } else {
+      // connect
+      try {
+        await bluetoothService.connect();
+      } catch (exception) {
+        if (mounted) {
+          _showError(context, exception.toString());
+        }
+      }
+    }
   }
 
   @override

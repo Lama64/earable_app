@@ -56,7 +56,7 @@ class _SessionItemState extends State<SessionItem> {
                   bottom: 5,
                   left: 12,
                   child: Text(
-                    widget.session.id.toString(),
+                    widget.session.dateCreated,
                     style: TextStyle(fontSize: 16),
                   ),
                 ),

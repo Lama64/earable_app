@@ -2,41 +2,37 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 class HeartRateGraph extends StatefulWidget {
-  const HeartRateGraph({super.key});
+  const HeartRateGraph({super.key, required this.heartRatePoints});
+
+  final List<FlSpot> heartRatePoints;
 
   @override
   State<HeartRateGraph> createState() => _HeartRateGraphState();
 }
 
 class _HeartRateGraphState extends State<HeartRateGraph> {
-  List<FlSpot> _heartRatePoints = [];
-  int _elapsedTime = 0;
-
   @override
   void initState() {
-    _generateSampleData();
     super.initState();
-  }
-
-  void _generateSampleData() {
-    // Generate some example heart rate points
-    List<double> sampleRates = [72, 75, 78, 74, 70, 76, 80, 82, 78, 74];
-    setState(() {
-      _heartRatePoints = List<FlSpot>.generate(
-        sampleRates.length,
-        (index) => FlSpot(index * 2,
-            sampleRates[index]), // x = time, y = heart rate
-      );
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    double listMaxY = widget.heartRatePoints
+        .map((point) => point.y)
+        .reduce((a, b) => a > b ? a : b);
+    double listMinY = widget.heartRatePoints
+        .map((point) => point.y)
+        .reduce((a, b) => a > b ? b : a);
     return LineChart(LineChartData(
-        minX: _heartRatePoints.isNotEmpty ? _heartRatePoints.first.x : 0,
-        maxX: _heartRatePoints.isNotEmpty ? _heartRatePoints.last.x : 30,
-        minY: 40,
-        maxY: 120,
+        minX: widget.heartRatePoints.isNotEmpty
+            ? widget.heartRatePoints.first.x
+            : 0,
+        maxX: widget.heartRatePoints.isNotEmpty
+            ? widget.heartRatePoints.last.x
+            : 30,
+        maxY: listMaxY > 120 ? listMaxY : 120,
+        minY: listMinY < 40 ? listMinY : 40,
         titlesData: FlTitlesData(
             leftTitles: const AxisTitles(
                 sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
@@ -50,7 +46,7 @@ class _HeartRateGraphState extends State<HeartRateGraph> {
         gridData: FlGridData(show: true),
         lineBarsData: [
           LineChartBarData(
-              spots: _heartRatePoints,
+              spots: widget.heartRatePoints,
               isCurved: true,
               barWidth: 3,
               color: Colors.red,
