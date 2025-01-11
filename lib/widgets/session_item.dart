@@ -50,6 +50,9 @@ class _SessionItemState extends State<SessionItem> {
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
+                              color: widget.session.logoUrl != null
+                                  ? Colors.white
+                                  : Colors.black,
                             )))),
                 // Text at bottom left
                 Positioned(
@@ -57,7 +60,12 @@ class _SessionItemState extends State<SessionItem> {
                   left: 12,
                   child: Text(
                     widget.session.dateCreated,
-                    style: TextStyle(fontSize: 16),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: widget.session.logoUrl != null
+                          ? Colors.white
+                          : Colors.black,
+                    ),
                   ),
                 ),
                 // close button
@@ -75,6 +83,9 @@ class _SessionItemState extends State<SessionItem> {
                         },
                         child: Icon(
                           Icons.close,
+                          color: widget.session.logoUrl != null
+                              ? Colors.white
+                              : Colors.black,
                         )))
               ],
             ),

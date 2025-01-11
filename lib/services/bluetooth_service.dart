@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:async';
 
 import 'package:earable_app/models/session.dart';
+import 'package:earable_app/services/show_error.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -12,31 +13,28 @@ import 'package:permission_handler/permission_handler.dart';
 // Methods taken from https://github.com/teco-kit/cosinuss-flutter-new.
 // Methods are adapted for use with a provider and to include error handling.
 class BluetoothService extends ChangeNotifier {
-  String _heartRate = "-";
-  int _simulatedHeartRate = 80;
-  bool _useSimulatedHeartRate = false;
+  String heartRate = "-";
+  int simulatedHeartRate = 80;
+  bool useSimulatedHeartRate = false;
 
-  String _accX = "-";
-  String _accY = "-";
-  String _accZ = "-";
+  String accX = "-";
+  String accY = "-";
+  String accZ = "-";
 
-  String _connectionStatus = "Disconnected";
-  bool _isConnected = false;
+  String connectionStatus = "Disconnected";
+  bool isConnected = false;
 
   bool _earConnectFound = false;
 
-  Timer? _heartRateTimer;
-  int _activeSessionId = -1;
+  Timer? _heartRatePointsTimer;
+  Timer? _simulatedHeartRateTimer;
+  Timer? _movementTimer;
 
-  String get connectionStatus => _connectionStatus;
-  String get heartRate => _heartRate;
-  String get simulatedHeartRate => _simulatedHeartRate.toString();
-  bool get useSimulatedHeartRate => _useSimulatedHeartRate;
-  String get accX => _accX;
-  String get accY => _accY;
-  String get accZ => _accZ;
-  bool get isConnected => _isConnected;
-  int get activeSessionId => _activeSessionId;
+  int activeSessionId = -1;
+
+  BluetoothService(this.useSimulatedHeartRate) {
+    _startSimulateHeartRate();
+  }
 
   void updateHeartRate(rawData) {
     if (rawData.length < 2) {
@@ -51,44 +49,67 @@ class BluetoothService extends ChangeNotifier {
     }
 
     if (bpm != 0) {
-      _heartRate = bpm.toString();
+      heartRate = bpm.toString();
     } else {
-      _heartRate = "-";
+      heartRate = "-";
     }
     notifyListeners();
   }
 
-  // Simulate heart rate as sensor does not seem to provide real data
+  /// Simulate heart rate as sensor does not seem to provide real data
   int _simulateHeartRate() {
-    _simulatedHeartRate = _simulatedHeartRate + (Random().nextInt(5) - 2);
-    if (_simulatedHeartRate < 40) {
-      _simulatedHeartRate = 40;
-    } else if (_simulatedHeartRate > 120) {
-      _simulatedHeartRate = 120;
+    simulatedHeartRate = simulatedHeartRate + (Random().nextInt(5) - 2);
+    if (simulatedHeartRate < 60) {
+      simulatedHeartRate = 60;
+    } else if (simulatedHeartRate > 120) {
+      simulatedHeartRate = 120;
     }
-    return _simulatedHeartRate;
+    return simulatedHeartRate;
   }
 
-  void updateHeartRatePoints(bool useSimulatedHeartRate, Session session) {
-    _useSimulatedHeartRate = useSimulatedHeartRate;
-    _activeSessionId = session.id;
-    _heartRateTimer = Timer.periodic(Duration(milliseconds: 500), (timer) {
-      int heartRate;
-      if (useSimulatedHeartRate) {
-        heartRate = _simulateHeartRate();
-      } else {
-        heartRate = int.tryParse(_heartRate) ?? 40;
-      }
-      session.elapsedTime = session.elapsedTime + 0.5;
-      session.heartRatePoints
-          .add(FlSpot(session.elapsedTime.toDouble(), heartRate.toDouble()));
+  void _startSimulateHeartRate() {
+    if (_simulatedHeartRateTimer != null &&
+        _simulatedHeartRateTimer!.isActive) {
+      return;
+    }
+    _simulatedHeartRateTimer =
+        Timer.periodic(Duration(milliseconds: 500), (timer) {
+      _simulateHeartRate();
       notifyListeners();
     });
   }
 
-  void stopHeartRatePoints() {
-    _activeSessionId = -1;
-    _heartRateTimer?.cancel();
+  void startSessionLogging(bool useSimulatedHeartRate, Session session) {
+    useSimulatedHeartRate = useSimulatedHeartRate;
+    activeSessionId = session.id;
+    _movementTimer = Timer.periodic(Duration(milliseconds: 250), (timer) {
+      session.totalMovementAmount++;
+      if (calculateMagnitude() > 33) {
+        session.amountOverThreshold++;
+      }
+    });
+    _heartRatePointsTimer =
+        Timer.periodic(Duration(milliseconds: 500), (timer) {
+      int heartRate;
+      if (useSimulatedHeartRate) {
+        heartRate = simulatedHeartRate;
+      } else {
+        if (int.tryParse(this.heartRate) == null) {
+          return;
+        }
+        heartRate = int.tryParse(this.heartRate) ?? 80;
+      }
+      session.duration = session.duration + 0.5;
+      session.heartRatePoints
+          .add(FlSpot(session.duration.toDouble(), heartRate.toDouble()));
+      notifyListeners();
+    });
+  }
+
+  void endSessionLogging() {
+    activeSessionId = -1;
+    _heartRatePointsTimer?.cancel();
+    _movementTimer?.cancel();
   }
 
   void updateAccelerometer(rawData) {
@@ -102,10 +123,20 @@ class BluetoothService extends ChangeNotifier {
     int accY = bytes[16];
     int accZ = bytes[18];
 
-    _accX = accX.toString();
-    _accY = accY.toString();
-    _accZ = accZ.toString();
+    this.accX = accX.toString();
+    this.accY = accY.toString();
+    this.accZ = accZ.toString();
     notifyListeners();
+  }
+
+  double calculateMagnitude() {
+    double? x = double.tryParse(accX);
+    double? y = double.tryParse(accY);
+    double? z = double.tryParse(accZ);
+    if (x == null || y == null || z == null) {
+      return 0;
+    }
+    return sqrt(x * x + y * y + z * z);
   }
 
   int twosComplimentOfNegativeMantissa(int mantissa) {
@@ -116,107 +147,124 @@ class BluetoothService extends ChangeNotifier {
     return mantissa;
   }
 
-  Future<void> connect() async {
+  Future<void> connect(BuildContext context) async {
     var permissionStatus = await Permission.location.request();
 
     if (permissionStatus.isDenied) {
-      throw Exception('Location permissions denied.');
+      if (context.mounted) {
+        showError(context, 'Location permission is required to connect.');
+      }
     }
 
     // start scanning
     FlutterBluePlus.startScan();
 
-    // listen to scan results
-    FlutterBluePlus.scanResults.listen((results) async {
-      // do something with scan results
-      for (ScanResult r in results) {
-        if (r.device.platformName == "earconnect" && !_earConnectFound) {
-          _earConnectFound =
-              true; // avoid multiple connects attempts to same device
+    try {
+      // listen to scan results
+      FlutterBluePlus.scanResults.listen((results) async {
+        // do something with scan results
+        for (ScanResult r in results) {
+          if (r.device.platformName == "earconnect" && !_earConnectFound) {
+            _earConnectFound =
+                true; // avoid multiple connects attempts to same device
 
-          await FlutterBluePlus.stopScan();
+            await FlutterBluePlus.stopScan();
+            _startSimulateHeartRate();
 
-          r.device.connectionState.listen((state) {
-            // listen for connection state changes
-            _isConnected = state == BluetoothConnectionState.connected;
-            _connectionStatus = (_isConnected) ? "Connected" : "Disconnected";
-            if (!_isConnected) {
-              stopHeartRatePoints();
-            }
+            r.device.connectionState.listen((state) {
+              // listen for connection state changes
+              isConnected = state == BluetoothConnectionState.connected;
+              connectionStatus = (isConnected) ? "Connected" : "Disconnected";
+              if (!isConnected) {
+                _earConnectFound = false;
+                endSessionLogging();
+              }
 
-            notifyListeners();
-          });
+              notifyListeners();
+            });
+            try {
+              await r.device.connect();
 
-          await r.device.connect();
+              var services = await r.device.discoverServices();
 
-          var services = await r.device.discoverServices();
+              for (var service in services) {
+                // iterate over services
+                for (var characteristic in service.characteristics) {
+                  // iterate over characteristics
 
-          for (var service in services) {
-            // iterate over services
-            for (var characteristic in service.characteristics) {
-              // iterate over characteristics
+                  switch (characteristic.uuid.toString()) {
+                    case "0000a001-1212-efde-1523-785feabcd123":
+                      await characteristic.write([
+                        0x32,
+                        0x31,
+                        0x39,
+                        0x32,
+                        0x37,
+                        0x34,
+                        0x31,
+                        0x30,
+                        0x35,
+                        0x39,
+                        0x35,
+                        0x35,
+                        0x30,
+                        0x32,
+                        0x34,
+                        0x35
+                      ]);
+                      await Future.delayed(Duration(
+                          seconds:
+                              2)); // short delay before next bluetooth operation otherwise BLE crashes
+                      characteristic.lastValueStream.listen((rawData) {
+                        updateAccelerometer(rawData);
+                      });
+                      await characteristic.setNotifyValue(true);
+                      await Future.delayed(Duration(seconds: 2));
+                      break;
 
-              switch (characteristic.uuid.toString()) {
-                case "0000a001-1212-efde-1523-785feabcd123":
-                  await characteristic.write([
-                    0x32,
-                    0x31,
-                    0x39,
-                    0x32,
-                    0x37,
-                    0x34,
-                    0x31,
-                    0x30,
-                    0x35,
-                    0x39,
-                    0x35,
-                    0x35,
-                    0x30,
-                    0x32,
-                    0x34,
-                    0x35
-                  ]);
-                  await Future.delayed(Duration(
-                      seconds:
-                          2)); // short delay before next bluetooth operation otherwise BLE crashes
-                  characteristic.lastValueStream.listen((rawData) {
-                    updateAccelerometer(rawData);
-                  });
-                  await characteristic.setNotifyValue(true);
-                  await Future.delayed(Duration(seconds: 2));
-                  break;
+                    case "00002a37-0000-1000-8000-00805f9b34fb":
+                      characteristic.lastValueStream.listen((rawData) {
+                        updateHeartRate(rawData);
+                      });
+                      await characteristic.setNotifyValue(true);
+                      await Future.delayed(Duration(
+                          seconds:
+                              2)); // short delay before next bluetooth operation otherwise BLE crashes
+                      break;
 
-                case "00002a37-0000-1000-8000-00805f9b34fb":
-                  characteristic.lastValueStream.listen((rawData) {
-                    updateHeartRate(rawData);
-                  });
-                  await characteristic.setNotifyValue(true);
-                  await Future.delayed(Duration(
-                      seconds:
-                          2)); // short delay before next bluetooth operation otherwise BLE crashes
-                  break;
-
-                default:
-                  break;
+                    default:
+                      break;
+                  }
+                }
+              }
+            } catch (exception) {
+              if (context.mounted) {
+                showError(context, exception.toString());
               }
             }
           }
         }
-      }
-    }, onError: (error) {
-      throw error;
-    });
+      }, onError: (error) {
+        throw error;
+      });
 
-    await Future.delayed(Duration(seconds: 4));
-    FlutterBluePlus.stopScan();
-    if (!_earConnectFound) {
-      throw Exception('No earable found.');
+      await Future.delayed(Duration(seconds: 5));
+      FlutterBluePlus.stopScan();
+      if (!isConnected && context.mounted) {
+        showError(context, 'No Earable found.');
+      }
+    } catch (exception) {
+      if (context.mounted) {
+        showError(context, exception.toString());
+      }
     }
   }
 
   @override
   void dispose() {
-    _heartRateTimer?.cancel();
+    _heartRatePointsTimer?.cancel();
+    _simulatedHeartRateTimer?.cancel();
+    _movementTimer?.cancel();
     super.dispose();
   }
 }

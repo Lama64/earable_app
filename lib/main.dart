@@ -5,8 +5,9 @@ import 'pages/home_page.dart';
 
 void main() {
   runApp(
+    /// Provider to get notified when the values from the earable change.
     ChangeNotifierProvider(
-      create: (_) => BluetoothService(),
+      create: (_) => BluetoothService(true),
       child: MainApp(),
     ),
   );
@@ -19,7 +20,7 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightBlue),
       ),
       home: const HomePage(title: 'Sessions'),
     );

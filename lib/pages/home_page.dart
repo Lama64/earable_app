@@ -5,11 +5,11 @@ import 'package:earable_app/widgets/session_item.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+/// Main page of app, displays all sessions.
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.title});
 
   final String title;
-  final steamId = '76561198240597364';
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -19,7 +19,10 @@ class _HomePageState extends State<HomePage> {
   final _sessions = <Session>[];
   final _searchController = TextEditingController();
   String _searchTerm = '';
+  String _steamId = '76561198240597364';
   late BluetoothService bluetoothService;
+
+  /// Whether to use simulated heart rate or sensor data.
   bool _useSimulatedHeartRate = true;
 
   @override
@@ -32,22 +35,25 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  /// Adds a new [Session] to [_sessions].
   void _addNewSession(Session session) {
     setState(() {
-      bluetoothService.updateHeartRatePoints(_useSimulatedHeartRate, session);
+      bluetoothService.startSessionLogging(_useSimulatedHeartRate, session);
       _sessions.insert(0, session);
     });
   }
 
+  /// Deletes the session with [id] from [_sessions].
   void _deleteSession(int id) {
     setState(() {
       _sessions.removeWhere((element) => element.id == id);
       if (bluetoothService.activeSessionId == id) {
-        bluetoothService.stopHeartRatePoints();
+        bluetoothService.endSessionLogging();
       }
     });
   }
 
+  /// Filters the sessions based on [_searchTerm].
   List<Session> _filterSessions() {
     return _sessions
         .where((session) =>
@@ -63,21 +69,20 @@ class _HomePageState extends State<HomePage> {
         centerTitle: true,
         title: Text(
           widget.title,
-          overflow: TextOverflow.fade,
-          maxLines: 1,
-          softWrap: false,
         ),
         actions: [
+          /// Current heart rate, depending on [_useSimulatedHeartRate].
           Padding(
             padding: EdgeInsets.only(right: 20),
             child: Text(
-                _useSimulatedHeartRate
-                    ? '${bluetoothService.heartRate} bpm'
-                    : '${bluetoothService.simulatedHeartRate} bpm',
+                _useSimulatedHeartRate && bluetoothService.isConnected
+                    ? '${bluetoothService.simulatedHeartRate} bpm'
+                    : '${bluetoothService.heartRate} bpm',
                 style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
+      drawer: _buildDrawer(),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -89,6 +94,8 @@ class _HomePageState extends State<HomePage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: fabOnPressed,
+
+        /// Icon changes based on connection status and wheter a session is active.
         child: Icon(bluetoothService.isConnected
             ? (bluetoothService.activeSessionId != -1 ? Icons.stop : Icons.add)
             : Icons.bluetooth_searching_sharp),
@@ -96,6 +103,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Search bar to filter sessions.
   Widget _buildSearch() {
     return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -108,6 +116,7 @@ class _HomePageState extends State<HomePage> {
         ));
   }
 
+  /// List of all sessions.
   Widget _buildList() {
     final filteredSessions = _filterSessions();
     return ListView.builder(
@@ -121,51 +130,66 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _showError(BuildContext context, String message) {
-    showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Error'),
-            content: Text(message),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context), child: Text('Close'))
-            ],
-          );
-        });
+  /// Menu to set steam ID and toggle simulated heart rate.
+  Widget _buildDrawer() {
+    return Drawer(
+        child: ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        DrawerHeader(
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColorLight,
+          ),
+          child: Text('Settings'),
+        ),
+
+        /// Toggle simulated heart rate.
+        SwitchListTile(
+          title: Text('Use simulated heart rate'),
+          value: _useSimulatedHeartRate,
+          onChanged: (value) {
+            setState(() {
+              bluetoothService.useSimulatedHeartRate = value;
+              _useSimulatedHeartRate = value;
+            });
+          },
+        ),
+        Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextFormField(
+              initialValue: _steamId,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: 'Enter Steam ID',
+              ),
+              onChanged: (value) => _steamId = value,
+            ))
+      ],
+    ));
   }
 
   void fabOnPressed() async {
     if (bluetoothService.isConnected &&
         bluetoothService.activeSessionId == -1) {
       // add session
+
       showDialog(
-        context: context,
-        builder: (context) => AddDialog(
-          onAddPressed: (session) {
-            try {
-              _addNewSession(session);
-            } catch (exception) {
-              Navigator.pop(context);
-              _showError(context, exception.toString());
-            }
-          },
-          steamId: widget.steamId,
-        ),
-      );
+          context: context,
+          builder: (context) {
+            return AddDialog(
+              onAddPressed: (session) {
+                Navigator.pop(context);
+                _addNewSession(session);
+              },
+              steamId: _steamId,
+            );
+          });
     } else if (bluetoothService.isConnected) {
       // stop session
-      bluetoothService.stopHeartRatePoints();
+      bluetoothService.endSessionLogging();
     } else {
       // connect
-      try {
-        await bluetoothService.connect();
-      } catch (exception) {
-        if (mounted) {
-          _showError(context, exception.toString());
-        }
-      }
+      await bluetoothService.connect(context);
     }
   }
 

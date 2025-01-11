@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:earable_app/models/session.dart';
+import 'package:earable_app/services/show_error.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
@@ -36,7 +37,7 @@ class _AddDialogState extends State<AddDialog> {
     _nameFocusNode.requestFocus();
   }
 
-  Future<Session?> _fetchCurrentGame(String steamId) async {
+  Future<Session> _fetchCurrentGame(String steamId) async {
     String path;
     if (RegExp(r'^\d{17}$').hasMatch(steamId)) {
       path = '/profiles/$steamId';
@@ -82,11 +83,17 @@ class _AddDialogState extends State<AddDialog> {
         children: [
           TextButton(
             onPressed: () async {
-              final session = await _fetchCurrentGame(widget.steamId);
-              widget.onAddPressed(session!);
-              if (context.mounted) {
-                Navigator.pop(context);
+              Session session;
+              try {
+                session = await _fetchCurrentGame(widget.steamId);
+              } catch (exception) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  showError(context, exception.toString());
+                }
+                return;
               }
+              widget.onAddPressed(session);
             },
             child: Text('Add from Steam'),
           ),
@@ -117,7 +124,6 @@ class _AddDialogState extends State<AddDialog> {
                   name: _nameController.text,
                   backgroundColor: _backgroundColors[
                       Random().nextInt(_backgroundColors.length)]));
-              Navigator.pop(context);
             },
             child: Text('Create'))
       ],

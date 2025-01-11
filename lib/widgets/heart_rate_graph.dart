@@ -19,11 +19,9 @@ class _HeartRateGraphState extends State<HeartRateGraph> {
   @override
   Widget build(BuildContext context) {
     double listMaxY = widget.heartRatePoints
-        .map((point) => point.y)
-        .reduce((a, b) => a > b ? a : b);
+        .fold<double>(0, (max, point) => point.y > max ? point.y : max);
     double listMinY = widget.heartRatePoints
-        .map((point) => point.y)
-        .reduce((a, b) => a > b ? b : a);
+        .fold<double>(double.infinity, (min, point) => point.y < min ? point.y : min);
     return LineChart(LineChartData(
         minX: widget.heartRatePoints.isNotEmpty
             ? widget.heartRatePoints.first.x
@@ -32,7 +30,7 @@ class _HeartRateGraphState extends State<HeartRateGraph> {
             ? widget.heartRatePoints.last.x
             : 30,
         maxY: listMaxY > 120 ? listMaxY : 120,
-        minY: listMinY < 40 ? listMinY : 40,
+        minY: listMinY < 60 ? listMinY : 60,
         titlesData: FlTitlesData(
             leftTitles: const AxisTitles(
                 sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
