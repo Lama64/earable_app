@@ -5,9 +5,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+/// Page to display information about a session.
 class SessionPage extends StatefulWidget {
   const SessionPage({super.key, required this.session});
 
+  /// Session to display.
   final Session session;
 
   @override
@@ -15,8 +17,10 @@ class SessionPage extends StatefulWidget {
 }
 
 class _SessionPageState extends State<SessionPage> {
+  /// Used to get information from earable, initialised in the build function.
   late BluetoothService bluetoothService;
 
+  /// Calculates the average of the y values of a [list] of [FlSpot]s.
   double _calculateAVG(List<FlSpot> list) {
     if (list.isEmpty) {
       return 0;
@@ -25,9 +29,13 @@ class _SessionPageState extends State<SessionPage> {
     return sum / list.length;
   }
 
+  /// Classifies the movement during the session as low, medium or high.
   String classifyMovement() {
+    /// Amount of times the movement was above the threshold divided by the total amount of movement checks.
     double amount =
         widget.session.amountOverThreshold / widget.session.totalMovementAmount;
+
+    /// values determined by testing
     if (amount < 0.05) {
       return 'low';
     } else if (amount < 0.085) {
@@ -37,6 +45,10 @@ class _SessionPageState extends State<SessionPage> {
     }
   }
 
+  /// Formats the [seconds] to a string in the format 'h m s'.
+  ///
+  /// Hours are omitted if the duration is less than an hour.
+  /// Minutes are omitted if the duration is less than a minute.
   String _durationToFormatString(double seconds) {
     Duration duration = Duration(seconds: seconds.toInt());
     if (duration.inHours > 0) {
@@ -60,6 +72,7 @@ class _SessionPageState extends State<SessionPage> {
           softWrap: false,
         ),
         actions: [
+          /// Current heart rate, depending on [useSimulatedHeartRate] in [BluetoothService].
           Padding(
             padding: EdgeInsets.only(right: 20),
             child: Text(
@@ -74,6 +87,7 @@ class _SessionPageState extends State<SessionPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            /// Heart rate graph.
             SizedBox(
               height: 300,
               child: Padding(
@@ -82,6 +96,8 @@ class _SessionPageState extends State<SessionPage> {
                     heartRatePoints: widget.session.heartRatePoints),
               ),
             ),
+
+            /// Table with remaining information.
             Padding(
                 padding: EdgeInsets.all(16), child: buildInformationTable()),
           ],
@@ -90,6 +106,7 @@ class _SessionPageState extends State<SessionPage> {
     );
   }
 
+  /// Builds a table with information about the session.
   Widget buildInformationTable() {
     return Container(
         decoration: BoxDecoration(
@@ -105,6 +122,7 @@ class _SessionPageState extends State<SessionPage> {
                   borderRadius:
                       BorderRadius.vertical(top: Radius.circular(10))),
               children: [
+                /// Table cell with the average heart rate.
                 Padding(
                   padding: EdgeInsets.all(8),
                   child: Column(
@@ -122,6 +140,8 @@ class _SessionPageState extends State<SessionPage> {
                     ],
                   ),
                 ),
+
+                /// Table cell with the maximum heart rate.
                 Padding(
                   padding: EdgeInsets.all(8),
                   child: Column(
@@ -147,6 +167,7 @@ class _SessionPageState extends State<SessionPage> {
                   borderRadius:
                       BorderRadius.vertical(bottom: Radius.circular(10))),
               children: [
+                /// Table cell with the duration of the session.
                 Padding(
                   padding: EdgeInsets.all(8),
                   child: Column(
@@ -164,6 +185,8 @@ class _SessionPageState extends State<SessionPage> {
                     ],
                   ),
                 ),
+
+                /// Table cell with the movement classification.
                 Padding(
                   padding: EdgeInsets.all(8),
                   child: Column(

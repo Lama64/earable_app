@@ -19,11 +19,15 @@ class _HomePageState extends State<HomePage> {
   final _sessions = <Session>[];
   final _searchController = TextEditingController();
   String _searchTerm = '';
-  String _steamId = '76561198240597364';
+
+  /// Filled with input in settings, 17 digit Steam ID or the custom url set in Steam.
+  String _steamId = '';
+
+  /// Used to get information from earable, initialised in the build function.
   late BluetoothService bluetoothService;
 
   /// Whether to use simulated heart rate or sensor data.
-  bool _useSimulatedHeartRate = true;
+  bool _useSimulatedHeartRate = false;
 
   @override
   void initState() {
@@ -82,6 +86,8 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+
+      /// Settings menu.
       drawer: _buildDrawer(),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,13 +160,15 @@ class _HomePageState extends State<HomePage> {
             });
           },
         ),
+
+        /// Input for Steam ID.
         Padding(
             padding: const EdgeInsets.all(16),
             child: TextFormField(
               initialValue: _steamId,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
-                labelText: 'Enter Steam ID',
+                labelText: 'Enter Steam ID / custom URL',
               ),
               onChanged: (value) => _steamId = value,
             ))
@@ -168,11 +176,11 @@ class _HomePageState extends State<HomePage> {
     ));
   }
 
+  /// Handles the floating action button press.
   void fabOnPressed() async {
     if (bluetoothService.isConnected &&
         bluetoothService.activeSessionId == -1) {
-      // add session
-
+      /// Add new session.
       showDialog(
           context: context,
           builder: (context) {
@@ -185,10 +193,10 @@ class _HomePageState extends State<HomePage> {
             );
           });
     } else if (bluetoothService.isConnected) {
-      // stop session
+      /// Stop Session.
       bluetoothService.endSessionLogging();
     } else {
-      // connect
+      /// Connect to device.
       await bluetoothService.connect(context);
     }
   }

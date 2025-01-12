@@ -10,11 +10,13 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 // Provides the data of the earable.
-// Methods taken from https://github.com/teco-kit/cosinuss-flutter-new.
+// Many methods taken from https://github.com/teco-kit/cosinuss-flutter-new.
 // Methods are adapted for use with a provider and to include error handling.
 class BluetoothService extends ChangeNotifier {
   String heartRate = "-";
   int simulatedHeartRate = 80;
+
+  /// Wheter the simulated heart rate should be used.
   bool useSimulatedHeartRate = false;
 
   String accX = "-";
@@ -26,16 +28,20 @@ class BluetoothService extends ChangeNotifier {
 
   bool _earConnectFound = false;
 
+  /// Timers to get data from earable in consitent intervals.
   Timer? _heartRatePointsTimer;
   Timer? _simulatedHeartRateTimer;
   Timer? _movementTimer;
 
+  /// ID of the active session, -1 indicates no active session.
   int activeSessionId = -1;
 
+  /// Start simulated heart rate on startup.
   BluetoothService(this.useSimulatedHeartRate) {
     _startSimulateHeartRate();
   }
 
+  /// Updates the heart rate based on the [rawData] from the earable.
   void updateHeartRate(rawData) {
     if (rawData.length < 2) {
       return;
@@ -67,6 +73,7 @@ class BluetoothService extends ChangeNotifier {
     return simulatedHeartRate;
   }
 
+  /// Starts the simulated heart rate.
   void _startSimulateHeartRate() {
     if (_simulatedHeartRateTimer != null &&
         _simulatedHeartRateTimer!.isActive) {
@@ -79,12 +86,15 @@ class BluetoothService extends ChangeNotifier {
     });
   }
 
+  /// Starts the logging for the active session.
   void startSessionLogging(bool useSimulatedHeartRate, Session session) {
     useSimulatedHeartRate = useSimulatedHeartRate;
     activeSessionId = session.id;
     _movementTimer = Timer.periodic(Duration(milliseconds: 250), (timer) {
       session.totalMovementAmount++;
-      if (calculateMagnitude() > 33) {
+
+      /// Threshold determined by testing
+      if (_calculateMagnitude() > 33) {
         session.amountOverThreshold++;
       }
     });
@@ -106,12 +116,14 @@ class BluetoothService extends ChangeNotifier {
     });
   }
 
+  /// Ends the logging for the active session.
   void endSessionLogging() {
     activeSessionId = -1;
     _heartRatePointsTimer?.cancel();
     _movementTimer?.cancel();
   }
 
+  /// Updates the accelerometer values based on the [rawData] from the earable.
   void updateAccelerometer(rawData) {
     if (rawData.length < 19) {
       return;
@@ -129,16 +141,20 @@ class BluetoothService extends ChangeNotifier {
     notifyListeners();
   }
 
-  double calculateMagnitude() {
+  /// Calculates the magnitude of the accelerometer values.
+  double _calculateMagnitude() {
     double? x = double.tryParse(accX);
     double? y = double.tryParse(accY);
     double? z = double.tryParse(accZ);
     if (x == null || y == null || z == null) {
       return 0;
     }
+
+    /// Vector length.
     return sqrt(x * x + y * y + z * z);
   }
 
+  /// Converts the [mantissa] to a two's compliment if it is negative.
   int twosComplimentOfNegativeMantissa(int mantissa) {
     if ((4194304 & mantissa) != 0) {
       return (((mantissa ^ -1) & 16777215) + 1) * -1;
@@ -147,13 +163,17 @@ class BluetoothService extends ChangeNotifier {
     return mantissa;
   }
 
+  /// Connects to the earable.
+  /// Shows an error dialog if any error occurs.
   Future<void> connect(BuildContext context) async {
     var permissionStatus = await Permission.location.request();
 
+    /// Can't connect without required permissions.
     if (permissionStatus.isDenied) {
       if (context.mounted) {
         showError(context, 'Location permission is required to connect.');
       }
+      return;
     }
 
     // start scanning
@@ -177,7 +197,7 @@ class BluetoothService extends ChangeNotifier {
               connectionStatus = (isConnected) ? "Connected" : "Disconnected";
               if (!isConnected) {
                 _earConnectFound = false;
-                endSessionLogging();
+                endSessionLogging(); // stop logging if earable is disconnected
               }
 
               notifyListeners();
@@ -241,11 +261,15 @@ class BluetoothService extends ChangeNotifier {
               if (context.mounted) {
                 showError(context, exception.toString());
               }
+              return;
             }
           }
         }
       }, onError: (error) {
-        throw error;
+        if (context.mounted) {
+          showError(context, error.toString());
+        }
+        return;
       });
 
       await Future.delayed(Duration(seconds: 5));

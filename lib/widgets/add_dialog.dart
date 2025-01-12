@@ -6,11 +6,15 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
 
+/// Dialog to add a new session.
 class AddDialog extends StatefulWidget {
   const AddDialog(
       {super.key, required this.onAddPressed, required this.steamId});
 
+  /// function called when the add button is pressed
   final void Function(Session) onAddPressed;
+
+  /// Steam ID or custom Url
   final String steamId;
 
   @override
@@ -18,8 +22,8 @@ class AddDialog extends StatefulWidget {
 }
 
 class _AddDialogState extends State<AddDialog> {
+  /// pastel rainbow colors for session item background
   static const _backgroundColors = [
-    // pastel rainbow colors for session item background
     Color(0xffffb3ba),
     Color(0xffffdfba),
     Color(0xffffffba),
@@ -34,25 +38,36 @@ class _AddDialogState extends State<AddDialog> {
   void initState() {
     super.initState();
 
-    _nameFocusNode.requestFocus();
+    _nameFocusNode.requestFocus(); // set focus to the input field on creation
   }
 
+  /// Fetches the currently played game of the user with [steamId].
+  /// Throws an exception if the request fails or the user is not playing a game.
   Future<Session> _fetchCurrentGame(String steamId) async {
     String path;
+    if (steamId == '') {
+      throw Exception('A Steam ID needs to be set in the settings.');
+    }
+
+    /// Steam ID consists of 17 digits.
     if (RegExp(r'^\d{17}$').hasMatch(steamId)) {
       path = '/profiles/$steamId';
     } else {
+      /// Everything else treated as custom URL.
       path = '/id/$steamId';
     }
     final profileUrl = Uri.https('steamcommunity.com', path, {'xml': '1'});
     final response = await http.get(profileUrl);
 
+    /// Check if the request was successful.
     if (response.statusCode != 200) {
       final statusCode = response.statusCode;
       throw Exception('Request failed. Status code: $statusCode');
     }
     final xmlResponse = XmlDocument.parse(response.body);
     final inGameInfo = xmlResponse.findAllElements('inGameInfo');
+
+    /// inGameInfo only found if a game is being played.
     if (inGameInfo.isEmpty) {
       throw Exception('There is no game currently being played.');
     }
@@ -63,6 +78,8 @@ class _AddDialogState extends State<AddDialog> {
     if (gameLogo.length != 1 || gameLink.length != 1 || gameName.length != 1) {
       throw Exception('Information about the game is missing');
     }
+
+    /// Game ID is the last part of the URL.
     final gameId =
         int.parse(Uri.parse(gameLink.single.innerText).pathSegments.last);
     return Session(
@@ -81,6 +98,7 @@ class _AddDialogState extends State<AddDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          /// Add from Steam.
           TextButton(
             onPressed: () async {
               Session session;
@@ -98,6 +116,8 @@ class _AddDialogState extends State<AddDialog> {
             child: Text('Add from Steam'),
           ),
           Divider(),
+
+          /// Name input field.
           TextField(
             controller: _nameController,
             focusNode: _nameFocusNode,
@@ -112,11 +132,12 @@ class _AddDialogState extends State<AddDialog> {
         ],
       ),
       actions: <Widget>[
-        //Cancel
+        /// Cancel
         TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text('Cancel')),
-        //Create
+
+        /// Create
         TextButton(
             onPressed: () {
               widget.onAddPressed(Session(

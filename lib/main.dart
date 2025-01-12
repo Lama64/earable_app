@@ -7,7 +7,7 @@ void main() {
   runApp(
     /// Provider to get notified when the values from the earable change.
     ChangeNotifierProvider(
-      create: (_) => BluetoothService(true),
+      create: (_) => BluetoothService(false),
       child: MainApp(),
     ),
   );
@@ -20,6 +20,7 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: ThemeData(
+        /// light blue as color scheme
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightBlue),
       ),
       home: const HomePage(title: 'Sessions'),
