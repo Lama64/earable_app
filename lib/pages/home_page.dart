@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:earable_app/models/session.dart';
 import 'package:earable_app/services/bluetooth_service.dart';
 import 'package:earable_app/widgets/add_dialog.dart';
 import 'package:earable_app/widgets/session_item.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Main page of app, displays all sessions.
 class HomePage extends StatefulWidget {
@@ -32,11 +35,42 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _loadData();
     _searchController.addListener(() {
       setState(() {
         _searchTerm = _searchController.text;
       });
     });
+  }
+
+  /// Saves the [_steamId] to shared preferences.
+  Future<void> _saveSteamId() async {
+    final storage = await SharedPreferences.getInstance();
+    await storage.setString('steamID', _steamId);
+  }
+
+  /// Saves the [_sessions] to shared preferences.
+  Future<void> _saveSessions() async {
+    final storage = await SharedPreferences.getInstance();
+    final sessionsJson = jsonEncode(_sessions.map((s) => s.toJson()).toList());
+    await storage.setString('sessions', sessionsJson);
+  }
+
+  /// Loads the sessions and steam ID from shared preferences.
+  Future<void> _loadData() async {
+    final storage = await SharedPreferences.getInstance();
+    final sessionsJson = storage.getString('sessions');
+    final steamId = storage.getString('steamID');
+    if (sessionsJson != null) {
+      final List<dynamic> sessionsList = jsonDecode(sessionsJson);
+      _sessions.clear();
+      for (final session in sessionsList) {
+        _sessions.add(Session.fromJson(session));
+      }
+    }
+    if (steamId != null) {
+      _steamId = steamId;
+    }
   }
 
   /// Adds a new [Session] to [_sessions].
@@ -68,6 +102,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     bluetoothService = Provider.of<BluetoothService>(context);
+    bluetoothService.saveDataCallback = _saveSessions;
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -170,7 +205,10 @@ class _HomePageState extends State<HomePage> {
                 border: OutlineInputBorder(),
                 labelText: 'Enter Steam ID / custom URL',
               ),
-              onChanged: (value) => _steamId = value,
+              onChanged: (value) {
+                _steamId = value;
+                _saveSteamId();
+              },
             ))
       ],
     ));

@@ -36,6 +36,8 @@ class BluetoothService extends ChangeNotifier {
   /// ID of the active session, -1 indicates no active session.
   int activeSessionId = -1;
 
+  Function saveDataCallback = () {};
+
   /// Start simulated heart rate on startup.
   BluetoothService(this.useSimulatedHeartRate) {
     _startSimulateHeartRate();
@@ -101,6 +103,7 @@ class BluetoothService extends ChangeNotifier {
     _heartRatePointsTimer =
         Timer.periodic(Duration(milliseconds: 500), (timer) {
       int heartRate;
+      session.duration = session.duration + 0.5;
       if (useSimulatedHeartRate) {
         heartRate = simulatedHeartRate;
       } else {
@@ -109,7 +112,6 @@ class BluetoothService extends ChangeNotifier {
         }
         heartRate = int.tryParse(this.heartRate) ?? 80;
       }
-      session.duration = session.duration + 0.5;
       session.heartRatePoints
           .add(FlSpot(session.duration.toDouble(), heartRate.toDouble()));
       notifyListeners();
@@ -118,6 +120,7 @@ class BluetoothService extends ChangeNotifier {
 
   /// Ends the logging for the active session.
   void endSessionLogging() {
+    saveDataCallback();
     activeSessionId = -1;
     _heartRatePointsTimer?.cancel();
     _movementTimer?.cancel();

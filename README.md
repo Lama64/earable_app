@@ -1,3 +1,3 @@
-# earable_app
+# Gaming Sessions
 
-A new Flutter project.
+Tested on Android 15

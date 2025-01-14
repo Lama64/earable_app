@@ -81,7 +81,8 @@ class _SessionItemState extends State<SessionItem> {
                     ),
                   ),
                 ),
-                // close button
+
+                /// Close button.
                 Positioned(
                     top: 10,
                     right: 10,
